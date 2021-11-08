@@ -11,6 +11,8 @@ setup(
     include_package_data=False,
     extras_require={"dev": Path("requirements-dev.txt").read_text().splitlines()},
     entry_points={
-        "console_scripts": ["benchmark=launcher:main"],
+        "console_scripts": [
+            "launcher=launcher:main", 
+            "benchmark_run=src/main.py:main"],
     },
 )

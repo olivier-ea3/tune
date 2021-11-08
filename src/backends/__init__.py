@@ -46,6 +46,8 @@ class BackendConfig(TargetConf):
 
 
 BackendConfigT = TypeVar("BackendConfigT", bound=BackendConfig)
+
+
 class Backend(Generic[BackendConfigT], ABC):
     NAME: ClassVar[str]
 
@@ -55,7 +57,7 @@ class Backend(Generic[BackendConfigT], ABC):
 
     @classmethod
     @abstractmethod
-    def allocate(cls, config: 'BenchmarkConfig'):
+    def allocate(cls, config: "BenchmarkConfig"):
         raise NotImplementedError()
 
     def configure(self, config: BackendConfigT):
@@ -68,10 +70,12 @@ class Backend(Generic[BackendConfigT], ABC):
                 config.num_threads = cpu_count()
 
     @abstractmethod
-    def execute(self, config: 'BenchmarkConfig', is_reference: bool = False) -> Tuple[Benchmark, np.ndarray]:
+    def execute(
+        self, config: "BenchmarkConfig", is_reference: bool = False
+    ) -> Tuple[Benchmark, np.ndarray]:
         raise NotImplementedError()
 
-    def clean(self, config: 'BenchmarkConfig'):
+    def clean(self, config: "BenchmarkConfig"):
         pass
 
     def _get_dummy_token(self) -> str:
@@ -82,4 +86,3 @@ class Backend(Generic[BackendConfigT], ABC):
 
     def _get_dummy_inputs(self, batch_size: int, seq_len: int) -> List[List[str]]:
         return [[self._get_dummy_token()] * seq_len] * batch_size
-

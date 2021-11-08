@@ -40,20 +40,31 @@ LOGGER = getLogger("tensorflow")
 
 def get_tf_device(device: str) -> str:
     if device == "cuda":
-        if len(tf.config.experimental.list_physical_devices('GPU')) == 0:
+        if len(tf.config.experimental.list_physical_devices("GPU")) == 0:
             raise ValueError(f"No GPU detected, cannot move data to {device}")
         return tf.DeviceSpec(device_type="GPU")
     else:
         return tf.DeviceSpec(device_type="CPU")
 
 
-def as_saved_model(tokenizer: PreTrainedTokenizer, model: TFPreTrainedModel, inputs: List, saved_model_path: Path, flag: str = SAVED_MODEL_TUNE_FLAG) -> Path:
+def as_saved_model(
+    tokenizer: PreTrainedTokenizer,
+    model: TFPreTrainedModel,
+    inputs: List,
+    saved_model_path: Path,
+    flag: str = SAVED_MODEL_TUNE_FLAG,
+) -> Path:
     encodings = tokenizer(inputs, is_split_into_words=True, return_tensors="tf")
 
     # Generate symbolic trace
-    tf_inputs = {name: Input((None, ), batch_size=None, dtype=tf.int32, name=name) for name, value in encodings.items()}
+    tf_inputs = {
+        name: Input((None,), batch_size=None, dtype=tf.int32, name=name)
+        for name, value in encodings.items()
+    }
     tf_outputs = model(tf_inputs)
-    tf_model = tf.keras.models.Model(inputs=tf_inputs, outputs={"output": tf_outputs[0]})
+    tf_model = tf.keras.models.Model(
+        inputs=tf_inputs, outputs={"output": tf_outputs[0]}
+    )
 
     # Saved SavedModel
     tf.saved_model.save(tf_model, saved_model_path.as_posix())
@@ -87,12 +98,14 @@ class TensorflowConfig(BackendConfig):
 
     @staticmethod
     def supported_keys() -> Set[str]:
-        return BackendConfig.supported_keys().union({
-            "use_xla",
-            "eager_mode",
-            "experimental_compiler",
-            "use_saved_model_format",
-        })
+        return BackendConfig.supported_keys().union(
+            {
+                "use_xla",
+                "eager_mode",
+                "experimental_compiler",
+                "use_saved_model_format",
+            }
+        )
 
 
 class TensorflowBackend(Backend[TensorflowConfig]):
@@ -102,7 +115,9 @@ class TensorflowBackend(Backend[TensorflowConfig]):
         super().__init__(model)
         self.model = model
         self.model_info = None  # Only used when working with SavedModel
-        self.local_model_path = local_model_path  # Local model path if using pre-exported SavedModel file
+        self.local_model_path = (
+            local_model_path  # Local model path if using pre-exported SavedModel file
+        )
 
         LOGGER.info(f"Allocated TensorFlow Backend for model: {model}")
 
@@ -112,7 +127,9 @@ class TensorflowBackend(Backend[TensorflowConfig]):
         # => (format <model_topology@model_local_page => bert-base-case@/path/to/savedmodel)
         if config.backend.use_saved_model_format and "@" in config.model:
             model_name, model_path = config.model.split("@")
-            LOGGER.info(f"Local SavedModel format detected: model={model_name}, path={model_path}")
+            LOGGER.info(
+                f"Local SavedModel format detected: model={model_name}, path={model_path}"
+            )
 
             backend = TensorflowBackend(model_name, model_path)
         else:
@@ -122,9 +139,11 @@ class TensorflowBackend(Backend[TensorflowConfig]):
 
         return backend
 
-    def clean(self, config: 'BenchmarkConfig'):
+    def clean(self, config: "BenchmarkConfig"):
         saved_model_path = Path(SAVED_MODEL_PATH)
-        if saved_model_path.exists() and saved_model_path.joinpath(SAVED_MODEL_TUNE_FLAG):
+        if saved_model_path.exists() and saved_model_path.joinpath(
+            SAVED_MODEL_TUNE_FLAG
+        ):
             LOGGER.debug(f"Cleaning SavedModel folder at {saved_model_path}")
             rmtree(saved_model_path)
             # saved_model_path.rmdir()
@@ -135,7 +154,10 @@ class TensorflowBackend(Backend[TensorflowConfig]):
         LOGGER.info("Configuring TensorFlow Benchmark:")
 
         if config.num_threads is not None:
-            if tf.config.threading.get_intra_op_parallelism_threads() != config.num_threads:
+            if (
+                tf.config.threading.get_intra_op_parallelism_threads()
+                != config.num_threads
+            ):
                 tf.config.threading.set_intra_op_parallelism_threads(config.num_threads)
 
             LOGGER.info(
@@ -146,8 +168,13 @@ class TensorflowBackend(Backend[TensorflowConfig]):
             )
 
         if config.num_interops_threads is not None:
-            if tf.config.threading.get_inter_op_parallelism_threads() != config.num_interops_threads:
-                tf.config.threading.set_inter_op_parallelism_threads(config.num_interops_threads)
+            if (
+                tf.config.threading.get_inter_op_parallelism_threads()
+                != config.num_interops_threads
+            ):
+                tf.config.threading.set_inter_op_parallelism_threads(
+                    config.num_interops_threads
+                )
 
             LOGGER.info(
                 f"\t+ Number of inter op threads ("
@@ -162,26 +189,32 @@ class TensorflowBackend(Backend[TensorflowConfig]):
             # Local model support
             if self.local_model_path is None:
                 LOGGER.info(f"Converting model: {self.model} to SavedModel format")
-                with options({
-                    "constant_folding": True,
-                    "shape_optimization": True,
-                    "disable_model_pruning": False,
-                    "arithmetic_optimization": True,
-                    "function_optimization": True
-                }):
+                with options(
+                    {
+                        "constant_folding": True,
+                        "shape_optimization": True,
+                        "disable_model_pruning": False,
+                        "arithmetic_optimization": True,
+                        "function_optimization": True,
+                    }
+                ):
                     with tf.device("CPU"):
                         model = TFAutoModel.from_pretrained(self.model)
                         self.local_model_path = as_saved_model(
                             tokenizer=self.tokenizer,
                             model=model,
                             inputs=self._get_dummy_inputs(
-                                1, model.config.max_position_embeddings - self.tokenizer.num_special_tokens_to_add()
+                                1,
+                                model.config.max_position_embeddings
+                                - self.tokenizer.num_special_tokens_to_add(),
                             ),
                             saved_model_path=Path(SAVED_MODEL_PATH),
-                            flag=SAVED_MODEL_TUNE_FLAG
+                            flag=SAVED_MODEL_TUNE_FLAG,
                         )
 
-                    LOGGER.debug(f"Converted SavedModel stored at {self.local_model_path}")
+                    LOGGER.debug(
+                        f"Converted SavedModel stored at {self.local_model_path}"
+                    )
 
             # Load the model
             saved_model_path = Path(self.local_model_path)
@@ -192,19 +225,26 @@ class TensorflowBackend(Backend[TensorflowConfig]):
             # Postponing model allocation to tune intra/inter ops before executing any other TF related code.
             self.model = TFAutoModel.from_pretrained(self.model)
 
-    def execute(self, config: BenchmarkConfig, is_reference: bool = False) -> Tuple[Benchmark, np.ndarray]:
+    def execute(
+        self, config: BenchmarkConfig, is_reference: bool = False
+    ) -> Tuple[Benchmark, np.ndarray]:
         if config.backend.eager_mode:
             return self._run_tf(config, is_reference)
         else:
             return self._run_tf_graph(config, is_reference)
 
-    def _run_tf(self, config: BenchmarkConfig, is_reference: bool) -> Tuple[Benchmark, np.ndarray]:
+    def _run_tf(
+        self, config: BenchmarkConfig, is_reference: bool
+    ) -> Tuple[Benchmark, np.ndarray]:
         LOGGER.info("Running TensorFlow Eager benchmark")
         benchmark = Benchmark()
 
         dummy_inputs = self._get_dummy_inputs(
             batch_size=config.batch_size,
-            seq_len=(config.sequence_length - self.tokenizer.num_special_tokens_to_add(pair=False))
+            seq_len=(
+                config.sequence_length
+                - self.tokenizer.num_special_tokens_to_add(pair=False)
+            ),
         )
 
         with tf.device(get_tf_device(config.device)):
@@ -224,7 +264,9 @@ class TensorflowBackend(Backend[TensorflowConfig]):
             def model_f(inputs):
                 # SavedModel concrete function needs unwrapped arguments ...
                 if config.backend.use_saved_model_format:
-                    LOGGER.info("Please note that saved model format will enable graph mode test!!")
+                    LOGGER.info(
+                        "Please note that saved model format will enable graph mode test!!"
+                    )
                     return self.model(**inputs).popitem()[1]
                 else:
                     return self.model(inputs).last_hidden_state
@@ -249,9 +291,12 @@ class TensorflowBackend(Backend[TensorflowConfig]):
 
             return benchmark, np.stack(outputs)
 
-    def _run_tf_graph(self, config: BenchmarkConfig, is_reference: bool) -> Tuple[Benchmark, np.ndarray]:
+    def _run_tf_graph(
+        self, config: BenchmarkConfig, is_reference: bool
+    ) -> Tuple[Benchmark, np.ndarray]:
         if not config.backend.use_xla:
             LOGGER.info("Running TensorFlow Graph benchmark")
+
             @tf.function
             def model_f(inputs):
                 # SavedModel concrete function needs unwrapped arguments ...
@@ -259,8 +304,10 @@ class TensorflowBackend(Backend[TensorflowConfig]):
                     return self.model(**inputs).popitem()[1]
                 else:
                     return self.model(inputs).last_hidden_state
+
         else:
             LOGGER.info("Running TensorFlow Graph with XLA benchmark")
+
             @tf.function(jit_compile=True)
             def model_f(inputs):
                 # SavedModel concrete function needs unwrapped arguments ...
@@ -273,17 +320,22 @@ class TensorflowBackend(Backend[TensorflowConfig]):
 
         dummy_inputs = self._get_dummy_inputs(
             batch_size=config.batch_size,
-            seq_len=(config.sequence_length - self.tokenizer.num_special_tokens_to_add(pair=False))
+            seq_len=(
+                config.sequence_length
+                - self.tokenizer.num_special_tokens_to_add(pair=False)
+            ),
         )
 
         with tf.device(get_tf_device(config.device)):
-            with options({
-                "constant_folding": True,
-                "shape_optimization": True,
-                "disable_model_pruning": False,
-                "arithmetic_optimization": True,
-                "function_optimization": True
-            }):
+            with options(
+                {
+                    "constant_folding": True,
+                    "shape_optimization": True,
+                    "disable_model_pruning": False,
+                    "arithmetic_optimization": True,
+                    "function_optimization": True,
+                }
+            ):
                 inputs = self.tokenizer(
                     dummy_inputs,
                     is_split_into_words=True,

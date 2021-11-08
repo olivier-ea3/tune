@@ -105,16 +105,22 @@ class PyTorchBackend(Backend[PyTorchConfig]):
 
         # Tune Nvidia's TF32 support
         if torch.has_cuda and torch.cuda.is_available():
-            if hasattr(torch.backends.cuda, "matmul") and hasattr(torch.backends.cuda.matmul, "allow_tf32"):
+            if hasattr(torch.backends.cuda, "matmul") and hasattr(
+                torch.backends.cuda.matmul, "allow_tf32"
+            ):
                 torch.backends.cuda.matmul.allow_tf32 = config.use_tf32
-                LOGGER.info(f"\t+ CUDA allows Nvidia's TF32: { torch.backends.cuda.matmul.allow_tf32 }")
+                LOGGER.info(
+                    f"\t+ CUDA allows Nvidia's TF32: { torch.backends.cuda.matmul.allow_tf32 }"
+                )
 
         if torch.has_cudnn and torch.backends.cudnn.is_available():
 
             if hasattr(torch.backends.cudnn, "allow_tf32"):
                 # The flag below controls whether to allow TF32 on cuDNN.
                 torch.backends.cudnn.allow_tf32 = config.use_tf32
-                LOGGER.info(f"\t+ CuDNN allows Nvidia's TF32: { torch.backends.cudnn.allow_tf32 }")
+                LOGGER.info(
+                    f"\t+ CuDNN allows Nvidia's TF32: { torch.backends.cudnn.allow_tf32 }"
+                )
 
         self.model.eval()
         LOGGER.info("\t+ Turning eval mode on Module (model.eval())")
@@ -123,7 +129,9 @@ class PyTorchBackend(Backend[PyTorchConfig]):
             # if torch.get_num_threads() != config.num_threads:
             torch.set_num_threads(config.num_threads)
 
-            LOGGER.info(f"\t+ Number of threads (torch.set_num_threads({config.num_threads}))")
+            LOGGER.info(
+                f"\t+ Number of threads (torch.set_num_threads({config.num_threads}))"
+            )
 
         if config.num_interops_threads is not None:
             # TODO: Setting this value multiple times between PyTorch & TorchScript runs raise a C error
@@ -139,13 +147,17 @@ class PyTorchBackend(Backend[PyTorchConfig]):
             self.model.config.return_dict = False
             LOGGER.info("\t+ Disabling dictionary output for TorchScript")
 
-    def execute(self, config: BenchmarkConfig, is_reference: bool = False) -> Tuple[Benchmark, np.ndarray]:
+    def execute(
+        self, config: BenchmarkConfig, is_reference: bool = False
+    ) -> Tuple[Benchmark, np.ndarray]:
         if config.backend.use_torchscript:
             return self._run_torchscript(config, is_reference)
         else:
             return self._run_pytorch(config, is_reference)
 
-    def _run_pytorch(self, config: BenchmarkConfig, is_reference: bool) -> Tuple[Benchmark, np.ndarray]:
+    def _run_pytorch(
+        self, config: BenchmarkConfig, is_reference: bool
+    ) -> Tuple[Benchmark, np.ndarray]:
         """
         :return:
         """
@@ -154,7 +166,10 @@ class PyTorchBackend(Backend[PyTorchConfig]):
 
         dummy_inputs = self._get_dummy_inputs(
             batch_size=config.batch_size,
-            seq_len=(config.sequence_length - self.tokenizer.num_special_tokens_to_add(pair=False))
+            seq_len=(
+                config.sequence_length
+                - self.tokenizer.num_special_tokens_to_add(pair=False)
+            ),
         )
 
         inputs = self.tokenizer(
@@ -188,7 +203,9 @@ class PyTorchBackend(Backend[PyTorchConfig]):
 
         return benchmark, np.stack(outputs)
 
-    def _run_torchscript(self, config: BenchmarkConfig, is_reference: bool) -> Tuple[Benchmark, np.ndarray]:
+    def _run_torchscript(
+        self, config: BenchmarkConfig, is_reference: bool
+    ) -> Tuple[Benchmark, np.ndarray]:
         """
         :return:
         """
@@ -197,7 +214,10 @@ class PyTorchBackend(Backend[PyTorchConfig]):
 
         dummy_inputs = self._get_dummy_inputs(
             batch_size=config.batch_size,
-            seq_len=(config.sequence_length - self.tokenizer.num_special_tokens_to_add(pair=False))
+            seq_len=(
+                config.sequence_length
+                - self.tokenizer.num_special_tokens_to_add(pair=False)
+            ),
         )
 
         inputs = self.tokenizer(
@@ -210,11 +230,13 @@ class PyTorchBackend(Backend[PyTorchConfig]):
         self.model = self.model.to(config.device)
 
         # To be sure inputs will be presented with the right prototype
-        ordered_inputs = OrderedDict({
-            "input_ids": inputs.input_ids,
-            "attention_mask": inputs.attention_mask,
-            "token_type_ids": inputs.token_type_ids,
-        })
+        ordered_inputs = OrderedDict(
+            {
+                "input_ids": inputs.input_ids,
+                "attention_mask": inputs.attention_mask,
+                "token_type_ids": inputs.token_type_ids,
+            }
+        )
 
         LOGGER.debug("Calling torch JIT on model (optimize=True)")
         model_scripted = torch.jit.trace(self.model, tuple(ordered_inputs.values()))
@@ -230,13 +252,12 @@ class PyTorchBackend(Backend[PyTorchConfig]):
             # as we are more interested in the output tensors.
             if not is_reference:
 
-                    # Run benchmark
-                    benchmark_duration_ns = config.benchmark_duration * SEC_TO_NS_SCALE
-                    with torch.cuda.amp.autocast(config.precision == "float16"):
-                        while sum(benchmark.latencies) < benchmark_duration_ns:
-                            with benchmark.track():
-                                model_scripted(*ordered_inputs.values())
+                # Run benchmark
+                benchmark_duration_ns = config.benchmark_duration * SEC_TO_NS_SCALE
+                with torch.cuda.amp.autocast(config.precision == "float16"):
+                    while sum(benchmark.latencies) < benchmark_duration_ns:
+                        with benchmark.track():
+                            model_scripted(*ordered_inputs.values())
 
-                    benchmark.finalize(benchmark_duration_ns)
+                benchmark.finalize(benchmark_duration_ns)
         return benchmark, np.stack(outputs)
-

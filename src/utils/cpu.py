@@ -33,7 +33,9 @@ class CPUinfo:
             raise RuntimeError("Windows platform is not supported!!!")
         elif platform.system() == "Linux":
             args = ["lscpu", "--parse=CPU,Core,Socket,Node"]
-            lscpu_info = subprocess.check_output(args, universal_newlines=True).split("\n")
+            lscpu_info = subprocess.check_output(args, universal_newlines=True).split(
+                "\n"
+            )
 
             # Get information about  cpu, core, socket and node
             for line in lscpu_info:
@@ -47,7 +49,7 @@ class CPUinfo:
     def _get_socket_info(self):
 
         self.socket_physical_cores = []  # socket_id is index
-        self.socket_logical_cores = []   # socket_id is index
+        self.socket_logical_cores = []  # socket_id is index
         self.sockets = int(max([line[2] for line in self.cpuinfo])) + 1
         self.core_to_sockets = {}
 
@@ -104,7 +106,7 @@ class CPUinfo:
 def get_procfs_path():
     """Return updated psutil.PROCFS_PATH constant."""
     """Copied from psutil code, and modified to fix an error."""
-    return sys.modules['psutil'].PROCFS_PATH
+    return sys.modules["psutil"].PROCFS_PATH
 
 
 def cpu_count_physical():
@@ -114,29 +116,41 @@ def cpu_count_physical():
     physical_logical_mapping = {}
     cores_per_socket = {}
     current_info = {}
-    with open(f'{get_procfs_path()}/cpuinfo', "rb") as f:
+    with open(f"{get_procfs_path()}/cpuinfo", "rb") as f:
         for line in f:
             line = line.strip().lower()
             if not line:
                 # print(current_info)
                 # new section
-                if b'physical id' in current_info and b'cpu cores' in current_info:
-                    cores_per_socket[current_info[b'physical id']] = current_info[b'cpu cores']
+                if b"physical id" in current_info and b"cpu cores" in current_info:
+                    cores_per_socket[current_info[b"physical id"]] = current_info[
+                        b"cpu cores"
+                    ]
 
-                if b'physical id' in current_info and b'core id' in current_info and b'processor' in current_info:
+                if (
+                    b"physical id" in current_info
+                    and b"core id" in current_info
+                    and b"processor" in current_info
+                ):
                     # print(current_info[b'physical id'] * 1000 + current_info[b'core id'])
-                    if current_info[b'physical id'] * 1000 + current_info[b'core id'] not in physical_logical_mapping:
+                    if (
+                        current_info[b"physical id"] * 1000 + current_info[b"core id"]
+                        not in physical_logical_mapping
+                    ):
                         physical_logical_mapping[
-                            current_info[b'physical id'] * 1000 + current_info[b'core id']
-                        ] = current_info[b'processor']
+                            current_info[b"physical id"] * 1000
+                            + current_info[b"core id"]
+                        ] = current_info[b"processor"]
                 current_info = {}
             else:
                 # ongoing section
-                if (line.startswith(b'physical id') or
-                        line.startswith(b'cpu cores') or
-                        line.startswith(b'core id') or
-                        line.startswith(b'processor')):
-                    key, value = line.split(b'\t:', 1)
+                if (
+                    line.startswith(b"physical id")
+                    or line.startswith(b"cpu cores")
+                    or line.startswith(b"core id")
+                    or line.startswith(b"processor")
+                ):
+                    key, value = line.split(b"\t:", 1)
                     current_info[key.rstrip()] = int(value.rstrip())
 
     total_num_cores = sum(cores_per_socket.values())
@@ -152,7 +166,9 @@ def cpu_count_physical():
     return total_num_cores, cores_per_socket, core_to_socket_mapping
 
 
-def get_instances_with_cpu_binding(num_core_per_instance: int = -1, num_instances: int = 1) -> List[Tuple[List[int], List[int]]]:
+def get_instances_with_cpu_binding(
+    num_core_per_instance: int = -1, num_instances: int = 1
+) -> List[Tuple[List[int], List[int]]]:
     """
     :param num_core_per_instance: Number of cores to use per instances, -1 means "use all the CPU cores"
     :param num_instances: Number of model instances to distribute CPU cores for
@@ -174,19 +190,25 @@ def get_instances_with_cpu_binding(num_core_per_instance: int = -1, num_instance
     # }
 
     # items in a set are unique, if their more than 1 value, then we have different number core per socket.
-    assert len(set(cores_per_socket.values())) == 1, "CPU cores are not equal across sockets"
+    assert (
+        len(set(cores_per_socket.values())) == 1
+    ), "CPU cores are not equal across sockets"
 
     # No special information given to restrict number of core -> Use all the cores
     if num_core_per_instance < 0:
         # We set the number of core per instance to the number of core of one single socket.
         num_core_per_instance = cores_per_socket[0]
         need_multiple_socket_per_instance = False
-        need_socket_overcommit = num_instances > 1  # Asking for more than one instance with all the cores
+        need_socket_overcommit = (
+            num_instances > 1
+        )  # Asking for more than one instance with all the cores
 
     # Number of core span more than a single socket
     elif num_core_per_instance > cores_per_socket[0]:
         num_core_per_instance = max(num_core_per_instance, total_num_cores)
-        need_multiple_socket_per_instance = len(cores_per_socket) > 1  # Ensure we have multiple socket
+        need_multiple_socket_per_instance = (
+            len(cores_per_socket) > 1
+        )  # Ensure we have multiple socket
         need_socket_overcommit = num_instances > 1
 
     # Span over only on socket
@@ -222,7 +244,14 @@ def get_instances_with_cpu_binding(num_core_per_instance: int = -1, num_instance
 
 
 def configure_numa(socket_binding: List[int], core_binding: List[int]):
-    from numa import available as is_numa_available, set_membind, get_membind, set_affinity, get_affinity
+    from numa import (
+        available as is_numa_available,
+        set_membind,
+        get_membind,
+        set_affinity,
+        get_affinity,
+    )
+
     if is_numa_available():
         LOGGER.info("Configuring NUMA:")
 

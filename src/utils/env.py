@@ -34,7 +34,9 @@ def check_tcmalloc() -> Path:
     Ensure tcmalloc library is correctly detected and found
     """
     if ENV_VAR_TCMALLOC_LIBRARY_PATH not in environ:
-        raise ValueError(f"Env var {ENV_VAR_TCMALLOC_LIBRARY_PATH} has to be set to location of libtcmalloc.so")
+        raise ValueError(
+            f"Env var {ENV_VAR_TCMALLOC_LIBRARY_PATH} has to be set to location of libtcmalloc.so"
+        )
 
     if len(environ[ENV_VAR_TCMALLOC_LIBRARY_PATH]) == 0:
         raise ValueError(f"Env var {ENV_VAR_TCMALLOC_LIBRARY_PATH} cannot be empty")
@@ -54,7 +56,9 @@ def check_intel_openmp() -> Path:
     Ensure Intel OpenMP library is correctly detected and found
     """
     if ENV_VAR_INTEL_OPENMP_LIBRARY_PATH not in environ:
-        raise ValueError(f"Env var {ENV_VAR_INTEL_OPENMP_LIBRARY_PATH} has to be set to location of libomp.so")
+        raise ValueError(
+            f"Env var {ENV_VAR_INTEL_OPENMP_LIBRARY_PATH} has to be set to location of libomp.so"
+        )
 
     if len(environ[ENV_VAR_INTEL_OPENMP_LIBRARY_PATH]) == 0:
         raise ValueError(f"Env var {ENV_VAR_INTEL_OPENMP_LIBRARY_PATH} cannot be empty")
@@ -73,11 +77,13 @@ def set_ld_preload_hook(config):
     ld_preload = []
     if hasattr(config, "malloc") and "tcmalloc" == config.malloc.name:
         from utils import check_tcmalloc
+
         tcmalloc_path = check_tcmalloc()
         ld_preload.append(tcmalloc_path.as_posix())
 
     if hasattr(config, "openmp_backend") and "intel" == config.openmp_backend.name:
         from utils import check_intel_openmp
+
         intel_omp_path = check_intel_openmp()
         ld_preload.append(intel_omp_path.as_posix())
 

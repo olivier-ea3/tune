@@ -69,7 +69,7 @@ class BenchmarkConfig:
     num_core_per_instance: int = MISSING
 
     # Experiment identifier
-    experiment_id: str = hexlify(getrandbits(32).to_bytes(4, 'big')).decode('ascii')
+    experiment_id: str = hexlify(getrandbits(32).to_bytes(4, "big")).decode("ascii")
 
     # Experiment name
     experiment_name: str = "default"

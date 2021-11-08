@@ -60,15 +60,16 @@ def show_results_in_console(df):
 
     console = Console()
     table = Table(
-        show_header=True, header_style="bold",
-        title="Inference Time per Framework, Batch Size & Sequence Length"
+        show_header=True,
+        header_style="bold",
+        title="Inference Time per Framework, Batch Size & Sequence Length",
     )
 
     columns = (
         ("Framework", "framework"),
         ("Batch Size", "batch"),
         ("Seq Length", "seqlen"),
-        ("Inference Time (ms)", "inference_time_secs")
+        ("Inference Time (ms)", "inference_time_secs"),
     )
 
     # Define the columns
@@ -77,17 +78,23 @@ def show_results_in_console(df):
 
     # Add rows
     for name, group in grouped_df:
-        items = name + (round(group.mean()["inference_time_secs"] * 1000, 2), )
+        items = name + (round(group.mean()["inference_time_secs"] * 1000, 2),)
         table.add_row(*[str(item) for item in items])
 
     # Display the table
     console.print(table)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = ArgumentParser("Hugging Face Model Benchmark")
-    parser.add_argument("--results-folder", type=Path, help="Where the benchmark results have been saved")
-    parser.add_argument("output_folder", type=Path, help="Where the resulting report will be saved")
+    parser.add_argument(
+        "--results-folder",
+        type=Path,
+        help="Where the benchmark results have been saved",
+    )
+    parser.add_argument(
+        "output_folder", type=Path, help="Where the resulting report will be saved"
+    )
 
     # Parse command line arguments
     args = parser.parse_args()

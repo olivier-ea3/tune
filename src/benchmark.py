@@ -37,21 +37,22 @@ class Benchmark:
         return len(self.latencies)
 
     @staticmethod
-    def merge(benchmarks: List['Benchmark']) -> 'Benchmark':
+    def merge(benchmarks: List["Benchmark"]) -> "Benchmark":
         latencies, throughputs = [], []
         for b in benchmarks:
 
-            assert len(b.latencies) > 0, "Empty benchmark (0 latency measurements recorded)"
-            assert b.throughput > 0., f"Benchmark has not been finalized, throughput < 0 ({b.throughput})"
+            assert (
+                len(b.latencies) > 0
+            ), "Empty benchmark (0 latency measurements recorded)"
+            assert (
+                b.throughput > 0.0
+            ), f"Benchmark has not been finalized, throughput < 0 ({b.throughput})"
 
             latencies += b.latencies
             throughputs.append(b.throughput)
 
         # Return all the latencies measured and the mean throughput over all instances
-        return Benchmark(
-            latencies,
-            sum(throughputs) / len(throughputs)
-        )
+        return Benchmark(latencies, sum(throughputs) / len(throughputs))
 
     @contextmanager
     def track(self):
@@ -62,13 +63,17 @@ class Benchmark:
         # Append the time to the buffer
         self.latencies.append(end - start)
 
-        LOGGER.debug(f"Tracked function took: {(end - start)}ns ({(end - start) / 1e6:.3f}ms)")
+        LOGGER.debug(
+            f"Tracked function took: {(end - start)}ns ({(end - start) / 1e6:.3f}ms)"
+        )
 
     def record_outputs(self, output: np.ndarray, reference: np.ndarray):
         self.outputs_diff = np.abs(reference - output)
 
     def finalize(self, duration_ns: int):
-        self.throughput = round((len(self.latencies) / duration_ns) * SEC_TO_NS_SCALE, 2)
+        self.throughput = round(
+            (len(self.latencies) / duration_ns) * SEC_TO_NS_SCALE, 2
+        )
 
     def to_pandas(self) -> DataFrame:
         # Compute stats

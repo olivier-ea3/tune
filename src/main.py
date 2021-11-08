@@ -46,7 +46,9 @@ cs.store(group="backend", name="ort_backend", node=OnnxRuntimeConfig)
 LOGGER = getLogger("benchmark")
 
 
-def get_overrided_backend_config(original_config: Union[DictConfig, BackendConfig], override: str) -> DictConfig:
+def get_overrided_backend_config(
+    original_config: Union[DictConfig, BackendConfig], override: str
+) -> DictConfig:
     # Copy the initial config and pop the backend
     update_config = original_config.copy()
     OmegaConf.set_struct(update_config, False)
@@ -56,28 +58,38 @@ def get_overrided_backend_config(original_config: Union[DictConfig, BackendConfi
     backend_factory: Type[Backend] = get_class(original_config.backend._target_)
 
     # Compose the two configs (reference <- original @backend==config.reference)
-    reference_config = compose(config_name="benchmark", overrides=[f"backend={override}"])
+    reference_config = compose(
+        config_name="benchmark", overrides=[f"backend={override}"]
+    )
     reference_config.merge_with(update_config)
-    reference_backend_factory: Type[Backend] = get_class(reference_config.backend._target_)
+    reference_backend_factory: Type[Backend] = get_class(
+        reference_config.backend._target_
+    )
 
     # Retrieve each original & reference BackendConfig instance type
-    reference_backend_config_type: Type[BackendConfig] = get_args(reference_backend_factory.__orig_bases__[0])[0]
-    original_backend_config_type: Type[BackendConfig] = get_args(backend_factory.__orig_bases__[0])[0]
+    reference_backend_config_type: Type[BackendConfig] = get_args(
+        reference_backend_factory.__orig_bases__[0]
+    )[0]
+    original_backend_config_type: Type[BackendConfig] = get_args(
+        backend_factory.__orig_bases__[0]
+    )[0]
 
     # Filter out to rely only on the common subset of supported config elements
     reference_backend_keys = reference_backend_config_type.supported_keys()
     original_backend_keys = original_backend_config_type.supported_keys()
 
     # (A - B) union (A inter B)
-    overlapping_backend_config_keys = \
-        (reference_backend_keys.intersection(original_backend_keys)) - {"name", "_target_", "version"}
+    overlapping_backend_config_keys = (
+        reference_backend_keys.intersection(original_backend_keys)
+    ) - {"name", "_target_", "version"}
 
-    LOGGER.debug(f"Keys to override from original config in the new one: {overlapping_backend_config_keys}")
+    LOGGER.debug(
+        f"Keys to override from original config in the new one: {overlapping_backend_config_keys}"
+    )
 
     # Get a masked configuration copy
     original_overlapping_backend_config = OmegaConf.masked_copy(
-        original_config,
-        list(overlapping_backend_config_keys)
+        original_config, list(overlapping_backend_config_keys)
     )
 
     # Override the properties
@@ -91,7 +103,9 @@ def run(config: BenchmarkConfig) -> None:
     # We need to allocate the reference backend (used to compare backend output against)
     if config.reference is not None and config.reference != config.backend:
         LOGGER.info(f"Using {config.reference} as reference backend")
-        reference_config = get_overrided_backend_config(config, override=config.reference)
+        reference_config = get_overrided_backend_config(
+            config, override=config.reference
+        )
     else:
         reference_config = None
 
@@ -126,5 +140,5 @@ def run(config: BenchmarkConfig) -> None:
     df.to_csv("results.csv", index_label="id")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

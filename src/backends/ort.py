@@ -19,7 +19,13 @@ from pathlib import Path
 from typing import Set, Optional, Tuple
 
 import numpy as np
-from onnxruntime import InferenceSession, SessionOptions, GraphOptimizationLevel, ExecutionMode, __version__ as ort_version
+from onnxruntime import (
+    InferenceSession,
+    SessionOptions,
+    GraphOptimizationLevel,
+    ExecutionMode,
+    __version__ as ort_version,
+)
 from onnxruntime.transformers.optimizer import optimize_model
 from tqdm import trange
 from transformers import TensorType
@@ -34,22 +40,15 @@ ALL_GRAPH_OPTIMIZATION_LEVELS = {
     GraphOptimizationLevel.ORT_ENABLE_ALL,
     GraphOptimizationLevel.ORT_ENABLE_EXTENDED,
     GraphOptimizationLevel.ORT_ENABLE_BASIC,
-    GraphOptimizationLevel.ORT_DISABLE_ALL
+    GraphOptimizationLevel.ORT_DISABLE_ALL,
 }
 ALL_GRAPH_OPTIMIZATION_LEVELS_FROM_STR = {
-    level.name: level
-    for level in ALL_GRAPH_OPTIMIZATION_LEVELS
+    level.name: level for level in ALL_GRAPH_OPTIMIZATION_LEVELS
 }
 
-ALL_EXECUTION_MODE = {
-    ExecutionMode.ORT_PARALLEL,
-    ExecutionMode.ORT_SEQUENTIAL
-}
+ALL_EXECUTION_MODE = {ExecutionMode.ORT_PARALLEL, ExecutionMode.ORT_SEQUENTIAL}
 
-ALL_EXECUTION_MODE_FROM_STR = {
-    level.name: level
-    for level in ALL_EXECUTION_MODE
-}
+ALL_EXECUTION_MODE_FROM_STR = {level.name: level for level in ALL_EXECUTION_MODE}
 
 
 @dataclass
@@ -65,7 +64,9 @@ class OnnxRuntimeConfig(BackendConfig):
 
     @staticmethod
     def supported_keys() -> Set[str]:
-        return BackendConfig.supported_keys().union({"opset", "graph_optimisation_level", "execution_mode"})
+        return BackendConfig.supported_keys().union(
+            {"opset", "graph_optimisation_level", "execution_mode"}
+        )
 
 
 BACKEND_NAME = "onnxruntime"
@@ -74,7 +75,6 @@ ONNX_GRAPHS_FOLDER = "onnx_graphs"
 
 
 class OnnxRuntimeBackend(Backend[OnnxRuntimeConfig]):
-
     def __init__(self, model: str, onnx_path: str):
         super().__init__(model)
 
@@ -90,41 +90,59 @@ class OnnxRuntimeBackend(Backend[OnnxRuntimeConfig]):
         onnx_convert("pt", model, output, opset=opset)
 
     @classmethod
-    def allocate(cls, config: 'BenchmarkConfig'):
+    def allocate(cls, config: "BenchmarkConfig"):
         onnx_model_path = Path(f"{ONNX_GRAPHS_FOLDER}/{config.model}.onnx.{getpid()}")
         OnnxRuntimeBackend.convert(config.model, onnx_model_path, config.backend.opset)
 
-        backend = OnnxRuntimeBackend(config.model, onnx_model_path.absolute().as_posix())
+        backend = OnnxRuntimeBackend(
+            config.model, onnx_model_path.absolute().as_posix()
+        )
         backend.configure(config.backend)
         return backend
 
     def configure(self, config: OnnxRuntimeConfig):
-        assert config.graph_optimisation_level in ALL_GRAPH_OPTIMIZATION_LEVELS_FROM_STR, f"Unknown {config.graph_optimisation_level}"
-        assert config.execution_mode in ALL_EXECUTION_MODE_FROM_STR, f"Unknown {config.execution_mode}"
+        assert (
+            config.graph_optimisation_level in ALL_GRAPH_OPTIMIZATION_LEVELS_FROM_STR
+        ), f"Unknown {config.graph_optimisation_level}"
+        assert (
+            config.execution_mode in ALL_EXECUTION_MODE_FROM_STR
+        ), f"Unknown {config.execution_mode}"
 
         super().configure(config)
 
         LOGGER.info("Configuring ONNX Runtime Benchmark:")
 
-        self.session_opts.execution_mode = ALL_EXECUTION_MODE_FROM_STR[config.execution_mode]
+        self.session_opts.execution_mode = ALL_EXECUTION_MODE_FROM_STR[
+            config.execution_mode
+        ]
         LOGGER.info(f"\t- Setting Execution Mode: {self.session_opts.execution_mode}")
 
-        self.session_opts.graph_optimization_level = ALL_GRAPH_OPTIMIZATION_LEVELS_FROM_STR[config.graph_optimisation_level]
-        LOGGER.info(f"\t- Setting Graph Optimization Level: {self.session_opts.graph_optimization_level}")
+        self.session_opts.graph_optimization_level = (
+            ALL_GRAPH_OPTIMIZATION_LEVELS_FROM_STR[config.graph_optimisation_level]
+        )
+        LOGGER.info(
+            f"\t- Setting Graph Optimization Level: {self.session_opts.graph_optimization_level}"
+        )
 
         if config.num_threads is not None:
             if self.session_opts.intra_op_num_threads != config.num_threads:
                 self.session_opts.intra_op_num_threads = config.num_threads
 
-            LOGGER.info(f"\t- Setting intra_op_num_threads({self.session_opts.intra_op_num_threads})")
+            LOGGER.info(
+                f"\t- Setting intra_op_num_threads({self.session_opts.intra_op_num_threads})"
+            )
 
         if config.num_interops_threads is not None:
             if self.session_opts.inter_op_num_threads != config.num_interops_threads:
                 self.session_opts.inter_op_num_threads = config.num_interops_threads
 
-            LOGGER.info(f"\t- Setting inter_op_num_threads({self.session_opts.inter_op_num_threads})")
+            LOGGER.info(
+                f"\t- Setting inter_op_num_threads({self.session_opts.inter_op_num_threads})"
+            )
 
-    def execute(self, config: 'BenchmarkConfig', is_reference: bool = False) -> Tuple[Benchmark, np.ndarray]:
+    def execute(
+        self, config: "BenchmarkConfig", is_reference: bool = False
+    ) -> Tuple[Benchmark, np.ndarray]:
         benchmark = Benchmark()
 
         try:
@@ -134,18 +152,23 @@ class OnnxRuntimeBackend(Backend[OnnxRuntimeConfig]):
             model_opt = optimize_model(
                 self.onnx_path,
                 model_type="bert",
-                opt_level=int(self.session_opts.graph_optimization_level)
+                opt_level=int(self.session_opts.graph_optimization_level),
             )
             model_opt.save_model_to_file(opt_onnx_path.absolute().as_posix())
             self.optimized_onnx_graph = opt_onnx_path.absolute().as_posix()
         except Exception as e:
             LOGGER.error(f"Unable to optimize ONNX BERT model: {e}")
 
-        session = InferenceSession(self.optimized_onnx_graph or self.onnx_path, self.session_opts)
+        session = InferenceSession(
+            self.optimized_onnx_graph or self.onnx_path, self.session_opts
+        )
 
         dummy_inputs = self._get_dummy_inputs(
             batch_size=config.batch_size,
-            seq_len=(config.sequence_length - self.tokenizer.num_special_tokens_to_add(pair=False))
+            seq_len=(
+                config.sequence_length
+                - self.tokenizer.num_special_tokens_to_add(pair=False)
+            ),
         )
 
         inputs = self.tokenizer(
@@ -174,7 +197,7 @@ class OnnxRuntimeBackend(Backend[OnnxRuntimeConfig]):
             benchmark.finalize(benchmark_duration_ns)
         return benchmark, np.stack(outputs)
 
-    def clean(self, config: 'BenchmarkConfig'):
+    def clean(self, config: "BenchmarkConfig"):
         onnx_path = Path(ONNX_GRAPHS_FOLDER)
 
         if onnx_path.exists():

@@ -25,7 +25,7 @@ from backends import Backend, BackendConfig
 from backends.ort import OnnxRuntimeConfig
 from backends.pytorch import PyTorchConfig
 from backends.tensorflow import TensorflowConfig
-from config import BenchmarkConfig
+from src.config import BenchmarkConfig
 
 
 # Register resolvers

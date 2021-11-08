@@ -21,7 +21,7 @@ from typing import Dict, Optional
 from omegaconf import MISSING
 from transformers import __version__ as transformers_version
 
-from backends import BackendConfig
+from src.backends import BackendConfig
 
 
 LOGGER = getLogger("benchmark")

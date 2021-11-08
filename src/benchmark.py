@@ -21,7 +21,7 @@ from typing import List
 
 from pandas import DataFrame
 
-from utils import SEC_TO_NS_SCALE
+from src.utils import SEC_TO_NS_SCALE
 
 LOGGER = getLogger("benchmark")
 

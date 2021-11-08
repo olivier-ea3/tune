@@ -13,6 +13,6 @@ setup(
     entry_points={
         "console_scripts": [
             "launcher=launcher:main", 
-            "benchmark_run=src/main.py:main"],
+            "benchmark_run=src.main:main"],
     },
 )
